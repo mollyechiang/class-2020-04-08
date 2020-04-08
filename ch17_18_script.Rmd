@@ -46,12 +46,22 @@ Let's spend time on missing data using the [**naniar**](https://naniar.njtierney
 
 * Which variables have missing values?
 
+dvote, party and ideology
+
 * Is missingness large enough to be a worry?
 
+yes! especially in dvote and ideology
 
 # Scene 2
 
 **Prompt:** Let's make some graphics. The **naniar** package comes with geom_* functions which can be used with **gpglot2** just like the built in geoms. It also has a variety of gg_* functions and miss_* functions. Let's start with `gg_miss_var()` and  `miss_var_summary()`. What do these show us?
+
+```{r}
+
+gg_miss_var(x)
+miss_var_summary(x)
+
+```
 
 
 # Scene 3
@@ -63,17 +73,67 @@ Recall the discussion (p. 298ff) in RAOS about the different sorts of missingnes
 * *missingness completely at random:* Imagine that the true dvote is replaced by NA randomly. Perhaps we had all our data on individual pieces of paper in a basket. Our puppy found the basket and ate 60% of the slips. The assignment mechanism by which specific dvotes were NA operated independent of anything else.
 
 ```{r s3a, eval=FALSE, echo=TRUE}
+
 data_we_see <- true_data %>% 
   mutate(dvote = ifelse(runif() < 0.6, NA, dvote))
+
 ```
 
 Do the same for the next three types of missing data. Describe each in terms of the "assignment mechanism" by which a given dvote became NA. Read [this](https://davidkane9.github.io/PPBDS/A-rubin-causal-model.html#the-assignment-mechanism) as a reminder.
+
+* *missingness at random:* Missing at random means the probability a variable is issing depends only on available information. When an outcome variable is missing at random, it is aceptable to just exclude all missing cases as longas the regression adjusts for all the variables that affect the probability of missingness.
+
+```{r eval=FALSE, echo=TRUE}
+
+data_we_see <- true_data %>% 
+  mutate(dvote = ifelse(race == "Black", #50% of the time NA, dvote))
+
+# for example, maybe black voters are more likely to have NAs in dvote than 
+# white voters (which we would want to then control for in our final model)
+
+```
+
+* *missingness that depends on unobserved predictors:* Some factor that is not a variable in the study is affecting people's likeliness to respond. For example, very private people may not want to share whether they voted democratic or not, but a person's level of privacy is not included in our data, so the missingness is not at random. 
+
+Unless we can include this variable in our data, we must accept some bias in our inferences.
+
+```{r eval=FALSE, echo=TRUE}
+
+data_we_see <- true_data %>% 
+  mutate(dvote = ifelse(unobserved_predictor == "something", #50% of the time NA, dvote))
+                        
+```
+
+
+* *missingness that depends on the missing value itself:* Missingness depends on the value of the (potentially missing variable itself)--in extreme cases this is called censoring. In this case, this would look like what would happen if maybe people who reported 0 for dvote were less likely to report their voting preference at all.
+
+This type of missingness is challenge to adjust for - bc it can force these predictive models toextrapolate beyond the range of the observed data - but can be addressed by adjusting for other predictors that could model the main variable (for example, if ppl who vote 0 for dvote are often very high income -- the income predictor could be adjusted to help).
+
+
+```{r s3a, eval=FALSE, echo=TRUE}
+
+data_we_see <- true_data %>% 
+  mutate(dvote = ifelse(dvote == 0, # 60% of the time be NA, dvote))
+
+```
 
 
 # Scene 4
 
 **Prompt:** use `gg_miss_var` to create a plot which is facetted by year. What explanations do you have for this pattern? Does this pattern make you more or less worried about all the missing data? That is, does this give any evidence as to what sort of missingness we are dealing with. And, deeper question, does this make you more or less worried about the inferences we are going to draw from our model?
 
+```{r}
+
+gg_miss_var(x, facet = year)
+
+```
+
+There are certain years where dvote is missing a lot: 58, 62, 66, 70, 72, 74, 78, 82, 86, 90, 94, 98
+- every 4 years 
+- dvote missing on off presidental election years 
+- missingness at random bc dependent on election years
+
+What explanations do you have for this pattern? Does this pattern make you more or less worried about all the missing data? That is, does this give any evidence as to what sort of missingness we are dealing with. And, deeper question, does this make you more or less worried about the inferences we are going to draw from our model?
 
 # Scene 5
 
@@ -91,7 +151,23 @@ First, use the `mice()` function to create a set of multiple imputed data sets n
 
 Second, explore `imp_1` by printing it. Then, use the `complete()` function to pull out the first full data set. Are there any missing values?
 
+```{r}
+
+imp_1 <- read_rds("imputation_example.rds")
+
+print(imp_1)
+
+new <- complete(imp_1)
+
+summary(y)
+
+```
+no missing values!
+
 Third, use `complete()` to create a new data set, called `new` which stacks the 5 imputed data sets into a single data set, and turn that data set into a tibble, for ease of exploration.
+
+imputation means take a guess on what these values are based on other info from the data set
+- so now we can run regression on these imputed data sets
 
 Fourth, run the same regression as we used to create `model_1` for each of the five imputed data sets. How different are the coeficients of gendermale and ideology across the five? What does that tell us? (Hint: There are many ways to do this, but I went with something [along these lines](https://davidkane9.github.io/PPBDS/13-classification.html#fitting-many-models-using-map-1).)
 
@@ -102,10 +178,20 @@ Fourth, run the same regression as we used to create `model_1` for each of the f
 
 **Prompt:** Suppose you are interested in the effect of vending machines on childhood obesity. What controlled experiment would you want to do (in a world without ethical, logistical, or financial constraints) to evaluate this question?
 
+Raise children in a lab - control every aspect of their lives. One group has access to vending machines and one doesn't. Follow them over the course of their lives and see if they are obese.
+
+every single school in the world - treatment is vending machines or no - results are some measure of weight
 
 # Scene 2
 
 **Prompt:** Suppose you are interested in the effect of smoking on lung cancer. What controlled experiment could you plausibly perform (in the real world) to evaluate this effect?
+
+look at someone who socially smokes vs chain-smoker and following them for a long time to see if they get lung cancer.
+look at a bunch of ppl w/ lung cancer and see what percent was smokers
+
+take 100 smokers - 50 of them randomly ask/incentivize to stop smoking
+- see how behavior changes - and how health changes 
+
 
 
 # **Final Project**
